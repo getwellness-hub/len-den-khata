@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f766e">
+<title>Transaction Record | Digital Ledger</title>
+<link rel="stylesheet" href="style.css">
+<style>
+#authArea{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.auth-btn{border:0;border-radius:10px;padding:9px 13px;background:#fff;color:#0f766e;font-weight:700;cursor:pointer;box-shadow:0 1px 4px #0002}
+.auth-user{font-size:12px;color:#fff;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#loginGate{position:fixed;inset:0;background:rgba(15,23,42,.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+#loginGate.hidden{display:none}
+.login-card{width:min(420px,100%);background:#fff;border-radius:20px;padding:28px;box-shadow:0 20px 60px #0005;text-align:center}
+.login-logo{font-size:42px;margin-bottom:8px}.login-card h2{margin:0 0 8px}.login-card p{color:#64748b;line-height:1.5}.google-login{width:100%;border:1px solid #dbe3ea;background:#fff;border-radius:12px;padding:13px 16px;font-size:15px;font-weight:700;cursor:pointer}.google-login:disabled{opacity:.6}
+#cloudStatus{font-size:11px;color:#dbeafe;margin-top:4px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>Transaction Record</h1>
+    <p>Simple & Secure Money Tracking</p>
+    <div id="cloudStatus">Cloud sync: checking...</div>
+    <div id="authArea"></div>
+  </div>
+  <button id="exportBtn" class="icon-btn" title="Export backup">⇩</button>
+</header>
+
+<main class="container">
+  <section class="summary-grid">
+    <div class="summary-card receivable"><span>Total Receivable</span><strong id="totalReceivable">₹0</strong></div>
+    <div class="summary-card payable"><span>Total Payable</span><strong id="totalPayable">₹0</strong></div>
+    <div class="summary-card balance"><span>Net Balance</span><strong id="netBalance">₹0</strong></div>
+    <div class="summary-card accounts"><span>Total Accounts</span><strong id="totalAccounts">0</strong></div>
+  </section>
+
+  <section class="toolbar">
+    <div class="search-wrap">🔎 <input id="searchInput" placeholder="Search by name or mobile"></div>
+    <button id="addPersonBtn" class="primary">+ New Account</button>
+  </section>
+
+  <section>
+    <div id="emptyState" class="empty hidden">
+      <div class="empty-icon">📒</div>
+      <h2>No accounts yet</h2>
+      <p>Add your first person to start tracking money.</p>
+      <button class="primary" id="emptyAddBtn">+ Add Account</button>
+    </div>
+    <div id="accountsList" class="accounts-list"></div>
+  </section>
+</main>
+
+<div id="personModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="personModalTitle">New Account</h2><button class="close" data-close="personModal">×</button></div>
+    <form id="personForm">
+      <input type="hidden" id="personId">
+      <label>Person Name<input id="personName" required maxlength="80"></label>
+      <label>Mobile Number<input id="personMobile" inputmode="tel" maxlength="15"></label>
+      <label>Note<input id="personNote" maxlength="120" placeholder="Optional"></label>
+      <button class="primary full" type="submit">Save Account</button>
+    </form>
+  </div>
+</div>
+
+<div id="accountModal" class="modal hidden">
+  <div class="modal-card large">
+    <div class="modal-head">
+      <div><h2 id="accountTitle">Account</h2><p id="accountSub"></p></div>
+      <button class="close" data-close="accountModal">×</button>
+    </div>
+    <div class="account-total" id="accountBalance">Balance: ₹0</div>
+    <div class="account-labels"><span>🟢 Receivable = money you should get back</span><span>🔴 Payable = money you need to pay</span></div>
+    <div class="transaction-actions">
+      <button class="give" id="giveBtn">💸 Money Given</button>
+      <button class="receive" id="receiveBtn">💵 Money Received</button>
+    </div>
+    <div class="hint-box">Tip: If you lend someone money, choose <b>Money Given</b>. Any repayment from them is <b>Money Received</b>.</div>
+    <div id="transactionList" class="transactions"></div>
+    <div class="account-footer">
+      <button class="secondary" id="statementBtn">Print / Save PDF</button>
+      <button class="secondary" id="editAccountBtn">Edit Account</button>
+      <button class="danger-outline" id="deleteAccountBtn">Delete Account</button>
+    </div>
+  </div>
+</div>
+
+<div id="transactionModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="transactionTitle">Add Transaction</h2><button class="close" data-close="transactionModal">×</button></div>
+    <form id="transactionForm">
+      <input type="hidden" id="transactionType">
+      <label>Amount (₹)<input id="transactionAmount" type="number" min="1" step="0.01" required></label>
+      <label>Date<input id="transactionDate" type="date" required></label>
+      <label>Description<input id="transactionNote" maxlength="120" placeholder="Optional"></label>
+      <button class="primary full" type="submit">Save Transaction</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="loginGate">
+  <div class="login-card">
+    <div class="login-logo">📒</div>
+    <h2>Transaction Record</h2>
+    <p>Sign in with Google to securely save your accounts and transactions in the cloud and access them from any device.</p>
+    <button id="googleLoginBtn" class="google-login">Continue with Google</button>
+    <p id="loginError" style="font-size:12px;color:#b91c1c;display:none"></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
