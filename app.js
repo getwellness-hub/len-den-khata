@@ -1,133 +1,671 @@
-const KEY="lenDenKhata_v1";
-let db=JSON.parse(localStorage.getItem(KEY)||'{"people":[]}');
-let activePersonId=null;
+const SUPABASE_URL = "https://qqtfheaqkqudlyavyvcn.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_3iZQvq4ehh3yAhBxPDhJpw_0WFFSvI7";
 
-const $=id=>document.getElementById(id);
-const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2});
-const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
-const person=id=>db.people.find(p=>p.id===id);
-function balance(p){return p.transactions.reduce((s,t)=>s+(t.type==="given"?t.amount:-t.amount),0)}
-function totals(){
- let net=0;db.people.forEach(p=>net+=balance(p));
- return {receivable:db.people.reduce((s,p)=>s+Math.max(balance(p),0),0),payable:db.people.reduce((s,p)=>s+Math.max(-balance(p),0),0),net};
-}
-function render(){
- const t=totals();$("totalReceivable").textContent=money(t.receivable);$("totalPayable").textContent=money(t.payable);$("netBalance").textContent=money(Math.abs(t.net))+(t.net>0?" (You will receive)":t.net<0?" (You will pay":"");$("totalAccounts").textContent=db.people.length;
- const q=$("searchInput").value.trim().toLowerCase();
- const list=db.people.filter(p=>p.name.toLowerCase().includes(q)||(p.mobile||"").includes(q));
- $("emptyState").classList.toggle("hidden",db.people.length>0);
- $("accountsList").innerHTML=list.map(p=>{
-   const b=balance(p), cls=b>0?"receivable":b<0?"payable":"zero", label=b>0?"You will receive":b<0?"You will pay":"Settled";
-   return `<div class="account-card" data-id="${p.id}"><div class="person-info"><h3>${esc(p.name)}</h3><p>${esc(p.mobile||"No mobile")} · ${p.transactions.length} transaction${p.transactions.length===1?"":"s"}</p></div><div class="amount ${cls}"><strong>${money(Math.abs(b))}</strong><small>${label}</small></div></div>`;
- }).join("");
- if(db.people.length===0) $("accountsList").innerHTML="";
-}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-function openModal(id){$(id).classList.remove("hidden")}
-function closeModal(id){$(id).classList.add("hidden")}
-function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",1800)}
-function openAccount(id){
- activePersonId=id;const p=person(id);$("accountTitle").textContent=p.name;$("accountSub").textContent=p.mobile||"";
- renderTransactions(p);openModal("accountModal");
-}
-function renderTransactions(p){
- const b=balance(p);$("accountBalance").textContent=`Balance: ${money(Math.abs(b))}${b>0?" — You will receive":b<0?" — You will pay":" — Settled"}`;
- const tx=[...p.transactions].sort((a,b)=>b.date.localeCompare(a.date)||b.created-a.created);
- $("transactionList").innerHTML=tx.length?tx.map(t=>`<div class="transaction">
- <div class="tx-left"><strong class="${t.type==="given"?"tx-given":"tx-received"}">${t.type==="given"?"I Gave Money":"I Received Money"} · ${money(t.amount)}</strong><small>${t.date}${t.note?" · "+esc(t.note):""}</small></div>
- <div class="tx-actions"><button onclick="editTx('${t.id}')">Edit</button><button onclick="deleteTx('${t.id}')">Delete</button></div></div>`).join(""):`<p style="text-align:center;color:#6b7280;padding:25px">No transactions yet.</p>`;
-}
-$("addPersonBtn").onclick=()=>openPerson();
-$("emptyAddBtn").onclick=()=>openPerson();
-$("searchInput").oninput=render;
-$("accountsList").onclick=e=>{const card=e.target.closest(".account-card");if(card)openAccount(card.dataset.id)};
-function openPerson(p=null){
- $("personModalTitle").textContent=p?"Edit Account":"New Account";$("personId").value=p?.id||"";$("personName").value=p?.name||"";$("personMobile").value=p?.mobile||"";$("personNote").value=p?.note||"";openModal("personModal");
-}
-$("personForm").onsubmit=e=>{e.preventDefault();let id=$("personId").value;
- if(id){let p=person(id);p.name=$("personName").value.trim();p.mobile=$("personMobile").value.trim();p.note=$("personNote").value.trim();toast("Account updated")}
- else {db.people.push({id:crypto.randomUUID(),name:$("personName").value.trim(),mobile:$("personMobile").value.trim(),note:$("personNote").value.trim(),transactions:[]});toast("Account created")}
- save();closeModal("personModal");render();
-};
-$("giveBtn").onclick=()=>openTx("given");$("receiveBtn").onclick=()=>openTx("received");
-function openTx(type,t=null){$("transactionTitle").textContent=t?"Edit Transaction":type==="given"?"I Gave Money":"I Received Money";$("transactionType").value=type;$("transactionAmount").value=t?.amount||"";$("transactionDate").value=t?.date||new Date().toISOString().slice(0,10);$("transactionNote").value=t?.note||"";$("transactionForm").dataset.id=t?.id||"";openModal("transactionModal")}
-$("transactionForm").onsubmit=e=>{e.preventDefault();const p=person(activePersonId),id=e.currentTarget.dataset.id,type=$("transactionType").value,tx={id:id||crypto.randomUUID(),type,amount:Number($("transactionAmount").value),date:$("transactionDate").value,note:$("transactionNote").value.trim(),created:Date.now()};
- if(id){const old=p.transactions.find(x=>x.id===id);Object.assign(old,tx)}else p.transactions.push(tx);
- save();closeModal("transactionModal");renderTransactions(p);render();toast("Transaction saved");
-};
-window.editTx=id=>{const p=person(activePersonId),t=p.transactions.find(x=>x.id===id);openTx(t.type,t)};
-window.deleteTx=id=>{if(!confirm("Delete this transaction?"))return;const p=person(activePersonId);p.transactions=p.transactions.filter(t=>t.id!==id);save();renderTransactions(p);render();toast("Transaction deleted")};
-$("deleteAccountBtn").onclick=()=>{if(!confirm("Delete this entire account and its transactions?"))return;db.people=db.people.filter(p=>p.id!==activePersonId);save();closeModal("accountModal");render();toast("Account deleted")};
-$("statementBtn").onclick=()=>{
- const p=person(activePersonId);
- const sorted=[...p.transactions].sort((a,b)=>a.date.localeCompare(b.date)||a.created-b.created);
- let running=0;
- const rows=sorted.map(t=>{
-   running += t.type==="given"?t.amount:-t.amount;
-   const label=t.type==="given"?"Money Given":"Money Received";
-   const status=running>0?"Receivable":running<0?"Payable":"Settled";
-   return `<tr>
-     <td>${esc(t.date)}</td>
-     <td><span class="badge ${t.type==="given"?"given":"received"}">${label}</span></td>
-     <td class="amount">${money(t.amount)}</td>
-     <td>${esc(t.note||"—")}</td>
-     <td class="balance">${money(Math.abs(running))}<small>${status}</small></td>
-   </tr>`;
- }).join("");
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
 
- const b=balance(p);
- const status=b>0?"Amount Receivable":b<0?"Amount Payable":"Account Settled";
- const generated=new Date().toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
- const w=window.open("","_blank");
- if(!w){toast("Please allow pop-ups to print the statement");return;}
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Transaction Record - ${esc(p.name)}</title>
- <style>
- @page{size:A4;margin:14mm}
- *{box-sizing:border-box}
- body{margin:0;background:#fff;color:#17202a;font-family:Arial,Helvetica,sans-serif;font-size:12px}
- .sheet{max-width:780px;margin:auto}
- .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f766e;padding-bottom:16px}
- .brand{font-size:24px;font-weight:800;color:#0f766e}.subtitle{color:#64748b;margin-top:4px;font-size:11px}
- .statement-title{text-align:right;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700}
- .customer{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
- .box{border:1px solid #e2e8f0;border-radius:8px;padding:12px}
- .label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
- .value{font-size:14px;font-weight:700}
- .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
- .sum{border-radius:8px;padding:11px;border:1px solid #e2e8f0}
- .sum .label{margin-bottom:5px}.sum .value{font-size:16px}
- .receivable{color:#15803d}.payable{color:#b91c1c}.settled{color:#475569}
- table{width:100%;border-collapse:collapse}
- th{background:#f0fdfa;color:#134e4a;text-align:left;font-size:10px;text-transform:uppercase;padding:9px;border-bottom:1px solid #cbd5e1}
- td{padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top}
- td.amount,td.balance{text-align:right;white-space:nowrap;font-weight:700}
- td.balance small{display:block;font-size:8px;color:#64748b;font-weight:400;margin-top:2px}
- .badge{font-size:9px;padding:4px 6px;border-radius:5px;font-weight:700;display:inline-block}
- .badge.given{background:#dcfce7;color:#166534}.badge.received{background:#fee2e2;color:#991b1b}
- .empty{text-align:center;padding:25px;color:#64748b}
- .footer{margin-top:22px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;color:#64748b;font-size:9px}
- .note{margin-top:14px;background:#f8fafc;border-radius:7px;padding:9px;color:#475569;font-size:9px}
- @media print{.no-print{display:none}}
- </style></head><body><div class="sheet">
- <div class="header"><div><div class="brand">Transaction Record</div><div class="subtitle">Simple &amp; Secure Money Tracking</div></div><div class="statement-title">Statement of Account</div></div>
- <div class="customer">
-   <div class="box"><div class="label">Account Holder</div><div class="value">${esc(p.name)}</div></div>
-   <div class="box"><div class="label">Mobile Number</div><div class="value">${esc(p.mobile||"Not provided")}</div></div>
- </div>
- <div class="summary">
-   <div class="sum"><div class="label">Money Given</div><div class="value">₹${p.transactions.filter(t=>t.type==="given").reduce((s,t)=>s+t.amount,0).toLocaleString("en-IN")}</div></div>
-   <div class="sum"><div class="label">Money Received</div><div class="value">₹${p.transactions.filter(t=>t.type==="received").reduce((s,t)=>s+t.amount,0).toLocaleString("en-IN")}</div></div>
-   <div class="sum"><div class="label">${status}</div><div class="value ${b>0?"receivable":b<0?"payable":"settled"}">${money(Math.abs(b))}</div></div>
- </div>
- ${rows?`<table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Description</th><th>Running Balance</th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="empty">No transactions recorded.</div>`}
- <div class="note"><b>Balance meaning:</b> Receivable means money is due to you. Payable means money is due from you. This statement is generated from the Transaction Record app.</div>
- <div class="footer"><span>Generated: ${generated}</span><span>Transaction Record</span></div>
- </div><script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);
- w.document.close();
+const KEY = "lenDenKhata_v1";
+const LOCAL_BACKUP_KEY = "lenDenKhata_local_backup_before_cloud";
+
+let db = JSON.parse(
+  localStorage.getItem(KEY) || '{"people":[]}'
+);
+
+let activePersonId = null;
+let currentUser = null;
+let cloudReady = false;
+
+const $ = id => document.getElementById(id);
+
+const money = n =>
+  "₹" + Number(n || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+
+const save = () =>
+  localStorage.setItem(KEY, JSON.stringify(db));
+
+const person = id =>
+  db.people.find(p => p.id === id);
+function balance(p) {
+  return p.transactions.reduce(
+    (s, t) =>
+      s +
+      (t.type === "given"
+        ? Number(t.amount)
+        : -Number(t.amount)),
+    0
+  );
+}
+
+function totals() {
+  let net = 0;
+
+  db.people.forEach(p => {
+    net += balance(p);
+  });
+
+  return {
+    receivable: db.people.reduce(
+      (s, p) => s + Math.max(balance(p), 0),
+      0
+    ),
+    payable: db.people.reduce(
+      (s, p) => s + Math.max(-balance(p), 0),
+      0
+    ),
+    net
+  };
+}
+
+function esc(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    c => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[c])
+  );
+}
+
+function openModal(id) {
+  $(id).classList.remove("hidden");
+}
+
+function closeModal(id) {
+  $(id).classList.add("hidden");
+}
+
+function toast(s) {
+  $("toast").textContent = s;
+  $("toast").style.display = "block";
+
+  setTimeout(() => {
+    $("toast").style.display = "none";
+  }, 1800);
+ }
+function render() {
+  const t = totals();
+
+  $("totalReceivable").textContent = money(t.receivable);
+  $("totalPayable").textContent = money(t.payable);
+
+  $("netBalance").textContent =
+    money(Math.abs(t.net)) +
+    (t.net > 0
+      ? " (You will receive)"
+      : t.net < 0
+      ? " (You will pay)"
+      : "");
+
+  $("totalAccounts").textContent = db.people.length;
+
+  const q = $("searchInput").value.trim().toLowerCase();
+
+  const list = db.people.filter(
+    p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.mobile || "").includes(q)
+  );
+
+  $("emptyState").classList.toggle(
+    "hidden",
+    db.people.length > 0
+  );
+
+  $("accountsList").innerHTML = list.map(p => {
+    const b = balance(p);
+
+    const cls =
+      b > 0 ? "receivable" :
+      b < 0 ? "payable" : "zero";
+
+    const label =
+      b > 0 ? "You will receive" :
+      b < 0 ? "You will pay" : "Settled";
+
+    return `
+      <div class="account-card" data-id="${p.id}">
+        <div class="person-info">
+          <h3>${esc(p.name)}</h3>
+          <p>${esc(p.mobile || "No mobile")} · ${p.transactions.length} transaction${p.transactions.length === 1 ? "" : "s"}</p>
+        </div>
+        <div class="amount ${cls}">
+          <strong>${money(Math.abs(b))}</strong>
+          <small>${label}</small>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  if (db.people.length === 0) {
+    $("accountsList").innerHTML = "";
+  }
+}
+
+function setCloudStatus(text) {
+  $("cloudStatus").textContent = text;
+}
+function openAccount(id) {
+  activePersonId = id;
+
+  const p = person(id);
+  if (!p) return;
+
+  $("accountTitle").textContent = p.name;
+  $("accountSub").textContent = p.mobile || "";
+
+  renderTransactions(p);
+  openModal("accountModal");
+}
+
+function renderTransactions(p) {
+  const b = balance(p);
+
+  $("accountBalance").textContent =
+    `Balance: ${money(Math.abs(b))}` +
+    `${b > 0
+      ? " — You will receive"
+      : b < 0
+      ? " — You will pay"
+      : " — Settled"}`;
+
+  const tx = [...p.transactions].sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) ||
+      b.created - a.created
+  );
+
+  $("transactionList").innerHTML = tx.length
+    ? tx.map(t => `
+      <div class="transaction">
+        <div class="tx-left">
+          <strong class="${
+            t.type === "given"
+              ? "tx-given"
+              : "tx-received"
+          }">
+            ${
+              t.type === "given"
+                ? "I Gave Money"
+                : "I Received Money"
+            } · ${money(t.amount)}
+          </strong>
+          <small>
+            ${esc(t.date)}
+            ${t.note ? " · " + esc(t.note) : ""}
+          </small>
+        </div>
+        <div class="tx-actions">
+          <button onclick="editTx('${t.id}')">
+            Edit
+          </button>
+          <button onclick="deleteTx('${t.id}')">
+            Delete
+          </button>
+        </div>
+      </div>
+    `).join("")
+    : `<p style="text-align:center;color:#6b7280;padding:25px">
+         No transactions yet.
+       </p>`;
+}
+$("addPersonBtn").onclick = () => openPerson();
+
+$("emptyAddBtn").onclick = () => openPerson();
+
+$("searchInput").oninput = render;
+
+$("accountsList").onclick = e => {
+  const card = e.target.closest(".account-card");
+  if (card) {
+    openAccount(card.dataset.id);
+  }
 };
-$("exportBtn").onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="len-den-khata-backup.json";a.click();toast("Backup exported")};
-document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
-document.querySelectorAll(".modal").forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
+
+function openPerson(p = null) {
+  $("personModalTitle").textContent =
+    p ? "Edit Account" : "New Account";
+
+  $("personId").value = p?.id || "";
+  $("personName").value = p?.name || "";
+  $("personMobile").value = p?.mobile || "";
+  $("personNote").value = p?.note || "";
+
+  openModal("personModal");
+}
+
+$("personForm").onsubmit = async e => {
+  e.preventDefault();
+
+  if (!currentUser) {
+    toast("Please sign in first");
+    return;
+  }
+
+  const id = $("personId").value;
+
+  try {
+    if (id) {
+      const p = person(id);
+
+      p.name = $("personName").value.trim();
+      p.mobile = $("personMobile").value.trim();
+      p.note = $("personNote").value.trim();
+
+      const { error } =
+        await supabaseClient
+          .from("people")
+          .update({
+            name: p.name,
+            mobile: p.mobile,
+            note: p.note
+          })
+          .eq("id", id)
+          .eq("user_id", currentUser.id);
+
+      if (error) throw error;
+
+      toast("Account updated");
+    } else {
+      const p = {
+        id: crypto.randomUUID(),
+        user_id: currentUser.id,
+        name: $("personName").value.trim(),
+        mobile: $("personMobile").value.trim(),
+        note: $("personNote").value.trim(),
+        transactions: []
+      };
+
+      const { error } =
+        await supabaseClient
+          .from("people")
+          .insert({
+            id: p.id,
+            user_id: currentUser.id,
+            name: p.name,
+            mobile: p.mobile,
+            note: p.note
+          });
+
+      if (error) throw error;
+
+      db.people.push(p);
+
+      toast("Account created");
+    }
+
+    save();
+    closeModal("personModal");
+    render();
+
+  } catch (err) {
+    console.error(err);
+    toast("Could not save account");
+  }
+};
+$("giveBtn").onclick = () => openTx("given");
+$("receiveBtn").onclick = () => openTx("received");
+
+function openTx(type, t = null) {
+  $("transactionTitle").textContent =
+    t
+      ? "Edit Transaction"
+      : type === "given"
+      ? "I Gave Money"
+      : "I Received Money";
+
+  $("transactionType").value = type;
+  $("transactionAmount").value = t?.amount || "";
+  $("transactionDate").value =
+    t?.date || new Date().toISOString().slice(0, 10);
+  $("transactionNote").value = t?.note || "";
+
+  $("transactionForm").dataset.id = t?.id || "";
+
+  openModal("transactionModal");
+}
+
+$("transactionForm").onsubmit = async e => {
+  e.preventDefault();
+
+  if (!currentUser) {
+    toast("Please sign in first");
+    return;
+  }
+
+  const p = person(activePersonId);
+  const id = e.currentTarget.dataset.id;
+
+  const tx = {
+    id: id || crypto.randomUUID(),
+    type: $("transactionType").value,
+    amount: Number($("transactionAmount").value),
+    date: $("transactionDate").value,
+    note: $("transactionNote").value.trim(),
+    created: Date.now()
+  };
+
+  try {
+    if (id) {
+      const { error } =
+        await supabaseClient
+          .from("transactions")
+          .update({
+            type: tx.type,
+            amount: tx.amount,
+            transaction_date: tx.date,
+            note: tx.note
+          })
+          .eq("id", id)
+          .eq("user_id", currentUser.id);
+
+      if (error) throw error;
+
+      const old = p.transactions.find(x => x.id === id);
+      Object.assign(old, tx);
+
+      toast("Transaction updated");
+    } else {
+      const { error } =
+        await supabaseClient
+          .from("transactions")
+          .insert({
+            id: tx.id,
+            user_id: currentUser.id,
+            person_id: p.id,
+            type: tx.type,
+            amount: tx.amount,
+            transaction_date: tx.date,
+            note: tx.note
+          });
+
+      if (error) throw error;
+
+      p.transactions.push(tx);
+
+      toast("Transaction saved");
+    }
+
+    save();
+    closeModal("transactionModal");
+    renderTransactions(p);
+    render();
+
+  } catch (err) {
+    console.error(err);
+    toast("Could not save transaction");
+  }
+};
+window.editTx = id => {
+  const p = person(activePersonId);
+  const t = p?.transactions.find(x => x.id === id);
+
+  if (t) openTx(t.type, t);
+};
+
+window.deleteTx = async id => {
+  if (!confirm("Delete this transaction?")) return;
+  if (!currentUser) return;
+
+  const p = person(activePersonId);
+
+  try {
+    const { error } =
+      await supabaseClient
+        .from("transactions")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", currentUser.id);
+
+    if (error) throw error;
+
+    p.transactions =
+      p.transactions.filter(t => t.id !== id);
+
+    save();
+    renderTransactions(p);
+    render();
+    toast("Transaction deleted");
+
+  } catch (err) {
+    console.error(err);
+    toast("Could not delete transaction");
+  }
+};
+
+$("deleteAccountBtn").onclick = async () => {
+  if (!confirm(
+    "Delete this entire account and its transactions?"
+  )) return;
+
+  if (!currentUser) return;
+
+  try {
+    const { error } =
+      await supabaseClient
+        .from("people")
+        .delete()
+        .eq("id", activePersonId)
+        .eq("user_id", currentUser.id);
+
+    if (error) throw error;
+
+    db.people =
+      db.people.filter(p => p.id !== activePersonId);
+
+    save();
+    closeModal("accountModal");
+    render();
+    toast("Account deleted");
+
+  } catch (err) {
+    console.error(err);
+    toast("Could not delete account");
+  }
+};
+
+$("editAccountBtn").onclick = () => {
+  const p = person(activePersonId);
+
+  closeModal("accountModal");
+  openPerson(p);
+};
+
+document
+  .querySelectorAll("[data-close]")
+  .forEach(b => {
+    b.onclick = () => closeModal(b.dataset.close);
+  });
+
+document
+  .querySelectorAll(".modal")
+  .forEach(m => {
+    m.onclick = e => {
+      if (e.target === m) closeModal(m.id);
+    };
+  });
+
+async function signIn() {
+  $("googleLoginBtn").disabled = true;
+  $("loginError").style.display = "none";
+
+  const redirectTo =
+    window.location.origin + window.location.pathname;
+
+  const { error } =
+    await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo }
+    });
+
+  if (error) {
+    $("googleLoginBtn").disabled = false;
+    $("loginError").textContent = error.message;
+    $("loginError").style.display = "block";
+  }
+}
+
+async function signOut() {
+  await supabaseClient.auth.signOut();
+}
+
+function updateAuthUI() {
+  const area = $("authArea");
+
+  if (!currentUser) {
+    area.innerHTML = "";
+    $("loginGate").classList.remove("hidden");
+    setCloudStatus("Cloud sync: sign in required");
+    return;
+  }
+
+  $("loginGate").classList.add("hidden");
+
+  const email =
+    currentUser.email || "Google account";
+
+  area.innerHTML = `
+    <span class="auth-user">${esc(email)}</span>
+    <button class="auth-btn" id="logoutBtn">
+      Log out
+    </button>
+  `;
+
+  $("logoutBtn").onclick = signOut;
+}
+
+$("googleLoginBtn").onclick = signIn;
+
+supabaseClient.auth.onAuthStateChange(
+  async (event, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+  }
+);
+
+async function uploadLocalData() {
+  if (!currentUser || !db.people.length) return;
+
+  localStorage.setItem(
+    LOCAL_BACKUP_KEY,
+    JSON.stringify(db)
+  );
+
+  const peopleRows = db.people.map(p => ({
+    id: p.id,
+    user_id: currentUser.id,
+    name: p.name,
+    mobile: p.mobile || null,
+    note: p.note || null
+  }));
+
+  let { error } =
+    await supabaseClient
+      .from("people")
+      .insert(peopleRows);
+
+  if (error) throw error;
+
+  const txRows = [];
+
+  db.people.forEach(p => {
+    p.transactions.forEach(t => {
+      txRows.push({
+        id: t.id,
+        user_id: currentUser.id,
+        person_id: p.id,
+        type: t.type,
+        amount: Number(t.amount),
+        transaction_date: t.date,
+        note: t.note || null
+      });
+    });
+  });
+
+  if (txRows.length) {
+    ({ error } =
+      await supabaseClient
+        .from("transactions")
+        .insert(txRows));
+
+    if (error) throw error;
+  }
+   }
+async function loadCloudData() {
+  setCloudStatus("Cloud sync: loading...");
+
+  const { data: peopleRows, error: peopleError } =
+    await supabaseClient
+      .from("people")
+      .select("id,name,mobile,note,created_at")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: true });
+
+  if (peopleError) throw peopleError;
+
+  const { data: txRows, error: txError } =
+    await supabaseClient
+      .from("transactions")
+      .select(
+        "id,person_id,type,amount,transaction_date,note,created_at"
+      )
+      .eq("user_id", currentUser.id)
+      .order("transaction_date", { ascending: true });
+
+  if (txError) throw txError;
+
+  if (peopleRows.length === 0 && db.people.length > 0) {
+    const yes = confirm(
+      `We found ${db.people.length} local account(s) on this phone. Upload them to your Google account now?`
+    );
+
+    if (yes) {
+      await uploadLocalData();
+      return await loadCloudData();
+    }
+  }
+
+  const peopleMap = new Map();
+
+  peopleRows.forEach(p => {
+    peopleMap.set(p.id, {
+      id: p.id,
+      name: p.name,
+      mobile: p.mobile || "",
+      note: p.note || "",
+      transactions: []
+    });
+  });
+
+  txRows.forEach(t => {
+    const p = peopleMap.get(t.person_id);
+
+    if (p) {
+      p.transactions.push({
+        id: t.id,
+        type: t.type,
+        amount: Number(t.amount),
+        date: t.transaction_date,
+        note: t.note || "",
+        created: new Date(t.created_at).getTime()
+      });
+    }
+  });
+
+  db = {
+    people: [...peopleMap.values()]
+  };
+
+  save();
+  cloudReady = true;
+  setCloudStatus("Cloud sync: connected");
+  render();
+   }
 render();
-
-$("editAccountBtn").onclick=()=>{const p=person(activePersonId);closeModal("accountModal");openPerson(p)};
