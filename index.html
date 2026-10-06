@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f766e">
-<title>Len-Den Khata | Digital Ledger</title>
+<title>Transaction Record | Digital Ledger</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
   <div>
-    <h1>Len-Den Khata</h1>
-    <p>Simple digital ledger</p>
+    <h1>Transaction Record</h1>
+    <p>Simple & Secure Money Tracking</p>
   </div>
   <button id="exportBtn" class="icon-btn" title="Export backup">⇩</button>
 </header>
@@ -62,10 +62,10 @@
     <div class="account-total" id="accountBalance">Balance: ₹0</div>
     <div class="account-labels"><span>🟢 Receivable = money you should get back</span><span>🔴 Payable = money you need to pay</span></div>
     <div class="transaction-actions">
-      <button class="give" id="giveBtn">💸 I Gave Money</button>
-      <button class="receive" id="receiveBtn">💵 I Received Money</button>
+      <button class="give" id="giveBtn">💸 Money Given</button>
+      <button class="receive" id="receiveBtn">💵 Money Received</button>
     </div>
-    <div class="hint-box">Tip: If you lend someone money, choose <b>I Gave Money</b>. Any repayment from them is <b>I Received Money</b>.</div>
+    <div class="hint-box">Tip: If you lend someone money, choose <b>Money Given</b>. Any repayment from them is <b>Money Received</b>.</div>
     <div id="transactionList" class="transactions"></div>
     <div class="account-footer">
       <button class="secondary" id="statementBtn">Print / Save PDF</button>

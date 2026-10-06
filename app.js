@@ -59,8 +59,71 @@ window.editTx=id=>{const p=person(activePersonId),t=p.transactions.find(x=>x.id=
 window.deleteTx=id=>{if(!confirm("Delete this transaction?"))return;const p=person(activePersonId);p.transactions=p.transactions.filter(t=>t.id!==id);save();renderTransactions(p);render();toast("Transaction deleted")};
 $("deleteAccountBtn").onclick=()=>{if(!confirm("Delete this entire account and its transactions?"))return;db.people=db.people.filter(p=>p.id!==activePersonId);save();closeModal("accountModal");render();toast("Account deleted")};
 $("statementBtn").onclick=()=>{
- const p=person(activePersonId);const b=balance(p);const rows=[...p.transactions].sort((a,b)=>a.date.localeCompare(b.date)).map(t=>`<tr><td>${t.date}</td><td>${t.type==="given"?"I Gave Money":"I Received Money"}</td><td>${money(t.amount)}</td><td>${esc(t.note||"")}</td></tr>`).join("");
- const w=window.open("","_blank");w.document.write(`<html><head><title>${esc(p.name)} - Len-Den Khata</title><style>body{font-family:Arial;padding:30px;color:#17202a}h1{color:#0f766e}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:9px;text-align:left}th{background:#f0fdfa}.summary{padding:12px;background:#f0fdfa;border-radius:8px}</style></head><body><h1>Len-Den Khata</h1><h2>${esc(p.name)}</h2><p>${esc(p.mobile||"")}</p><div class="summary"><b>Balance: ${money(Math.abs(b))} ${b>0?"(You will receive)":b<0?"(You will pay)":"(Settled)"}</b></div><table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table><p>Generated on ${new Date().toLocaleString("en-IN")}</p><script>window.print()<\/script></body></html>`);w.document.close();
+ const p=person(activePersonId);
+ const sorted=[...p.transactions].sort((a,b)=>a.date.localeCompare(b.date)||a.created-b.created);
+ let running=0;
+ const rows=sorted.map(t=>{
+   running += t.type==="given"?t.amount:-t.amount;
+   const label=t.type==="given"?"Money Given":"Money Received";
+   const status=running>0?"Receivable":running<0?"Payable":"Settled";
+   return `<tr>
+     <td>${esc(t.date)}</td>
+     <td><span class="badge ${t.type==="given"?"given":"received"}">${label}</span></td>
+     <td class="amount">${money(t.amount)}</td>
+     <td>${esc(t.note||"—")}</td>
+     <td class="balance">${money(Math.abs(running))}<small>${status}</small></td>
+   </tr>`;
+ }).join("");
+
+ const b=balance(p);
+ const status=b>0?"Amount Receivable":b<0?"Amount Payable":"Account Settled";
+ const generated=new Date().toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"});
+ const w=window.open("","_blank");
+ if(!w){toast("Please allow pop-ups to print the statement");return;}
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Transaction Record - ${esc(p.name)}</title>
+ <style>
+ @page{size:A4;margin:14mm}
+ *{box-sizing:border-box}
+ body{margin:0;background:#fff;color:#17202a;font-family:Arial,Helvetica,sans-serif;font-size:12px}
+ .sheet{max-width:780px;margin:auto}
+ .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f766e;padding-bottom:16px}
+ .brand{font-size:24px;font-weight:800;color:#0f766e}.subtitle{color:#64748b;margin-top:4px;font-size:11px}
+ .statement-title{text-align:right;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+ .customer{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+ .box{border:1px solid #e2e8f0;border-radius:8px;padding:12px}
+ .label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+ .value{font-size:14px;font-weight:700}
+ .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+ .sum{border-radius:8px;padding:11px;border:1px solid #e2e8f0}
+ .sum .label{margin-bottom:5px}.sum .value{font-size:16px}
+ .receivable{color:#15803d}.payable{color:#b91c1c}.settled{color:#475569}
+ table{width:100%;border-collapse:collapse}
+ th{background:#f0fdfa;color:#134e4a;text-align:left;font-size:10px;text-transform:uppercase;padding:9px;border-bottom:1px solid #cbd5e1}
+ td{padding:9px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+ td.amount,td.balance{text-align:right;white-space:nowrap;font-weight:700}
+ td.balance small{display:block;font-size:8px;color:#64748b;font-weight:400;margin-top:2px}
+ .badge{font-size:9px;padding:4px 6px;border-radius:5px;font-weight:700;display:inline-block}
+ .badge.given{background:#dcfce7;color:#166534}.badge.received{background:#fee2e2;color:#991b1b}
+ .empty{text-align:center;padding:25px;color:#64748b}
+ .footer{margin-top:22px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;color:#64748b;font-size:9px}
+ .note{margin-top:14px;background:#f8fafc;border-radius:7px;padding:9px;color:#475569;font-size:9px}
+ @media print{.no-print{display:none}}
+ </style></head><body><div class="sheet">
+ <div class="header"><div><div class="brand">Transaction Record</div><div class="subtitle">Simple &amp; Secure Money Tracking</div></div><div class="statement-title">Statement of Account</div></div>
+ <div class="customer">
+   <div class="box"><div class="label">Account Holder</div><div class="value">${esc(p.name)}</div></div>
+   <div class="box"><div class="label">Mobile Number</div><div class="value">${esc(p.mobile||"Not provided")}</div></div>
+ </div>
+ <div class="summary">
+   <div class="sum"><div class="label">Money Given</div><div class="value">₹${p.transactions.filter(t=>t.type==="given").reduce((s,t)=>s+t.amount,0).toLocaleString("en-IN")}</div></div>
+   <div class="sum"><div class="label">Money Received</div><div class="value">₹${p.transactions.filter(t=>t.type==="received").reduce((s,t)=>s+t.amount,0).toLocaleString("en-IN")}</div></div>
+   <div class="sum"><div class="label">${status}</div><div class="value ${b>0?"receivable":b<0?"payable":"settled"}">${money(Math.abs(b))}</div></div>
+ </div>
+ ${rows?`<table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Description</th><th>Running Balance</th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="empty">No transactions recorded.</div>`}
+ <div class="note"><b>Balance meaning:</b> Receivable means money is due to you. Payable means money is due from you. This statement is generated from the Transaction Record app.</div>
+ <div class="footer"><span>Generated: ${generated}</span><span>Transaction Record</span></div>
+ </div><script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);
+ w.document.close();
 };
 $("exportBtn").onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="len-den-khata-backup.json";a.click();toast("Backup exported")};
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
