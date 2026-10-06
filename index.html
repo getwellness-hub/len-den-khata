@@ -60,13 +60,16 @@
       <button class="close" data-close="accountModal">×</button>
     </div>
     <div class="account-total" id="accountBalance">Balance: ₹0</div>
+    <div class="account-labels"><span>🟢 Receivable = money you should get back</span><span>🔴 Payable = money you need to pay</span></div>
     <div class="transaction-actions">
-      <button class="give" id="giveBtn">+ Money Given</button>
-      <button class="receive" id="receiveBtn">− Money Received</button>
+      <button class="give" id="giveBtn">💸 I Gave Money</button>
+      <button class="receive" id="receiveBtn">💵 I Received Money</button>
     </div>
+    <div class="hint-box">Tip: If you lend someone money, choose <b>I Gave Money</b>. Any repayment from them is <b>I Received Money</b>.</div>
     <div id="transactionList" class="transactions"></div>
     <div class="account-footer">
       <button class="secondary" id="statementBtn">Print / Save PDF</button>
+      <button class="secondary" id="editAccountBtn">Edit Account</button>
       <button class="danger-outline" id="deleteAccountBtn">Delete Account</button>
     </div>
   </div>

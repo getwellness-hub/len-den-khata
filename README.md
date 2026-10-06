@@ -1,28 +1,24 @@
-# Len-Den Khata
+# Len-Den Khata — Version 2
 
-A simple mobile-first digital ledger built with plain HTML, CSS and JavaScript.
+A mobile-first digital ledger for keeping track of money you lend and money you receive back.
 
-## Features
+### Core meaning
+- **I Gave Money** → money you lent/advanced to the person; it increases what they owe you.
+- **I Received Money** → repayment received from that person; it reduces what they owe you.
+- If the balance is positive, the app shows **You will receive**.
+- If the balance is negative, the app shows **You will pay**.
+
+### Features
 - Dashboard totals
-- Add accounts
-- Money Given / Money Received
-- Running balances
+- Individual accounts
+- Give/receive transactions
+- Running balance
 - Search
 - Edit/delete transactions
-- Print / Save account statement as PDF
+- Edit account
+- Print / Save statement as PDF
 - JSON backup export
 - Local browser storage
-- No backend required for the first version
+- Mobile-first UI
 
-## Run
-Open `index.html` in a browser.
-
-## GitHub Pages
-1. Create a GitHub repository.
-2. Upload `index.html`, `style.css`, and `app.js`.
-3. Go to Settings → Pages.
-4. Select Deploy from branch → main → /(root).
-5. Save and open the generated Pages URL.
-
-## Important
-This version stores data in the browser on the device. Clearing browser data can remove the records. Use Export Backup regularly. A future version can add login, cloud database, multi-device sync and stronger security.
+Upload `index.html`, `style.css`, and `app.js` to your GitHub repository to update the live site.
